@@ -160,7 +160,7 @@ h3 {
   background: rgba(255, 255, 255, 0.04);
 }
 
-.signal-card, .panel, .metrics article, .form-panel {
+.signal-card, .panel, .metrics article, .form-panel, .roi-panel, .approval-panel {
   border: 1px solid var(--line);
   background: linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.025));
   backdrop-filter: blur(18px);
@@ -205,8 +205,73 @@ h3 {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 14px;
-  margin-bottom: 34px;
+  margin-bottom: 18px;
 }
+
+.roi-panel, .approval-panel {
+  border-radius: 34px;
+  padding: 28px;
+  margin-bottom: 24px;
+}
+
+.roi-grid, .packet-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.roi-grid article, .decision-card {
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 20px;
+  background: rgba(0,0,0,0.18);
+}
+
+.roi-grid span {
+  display: block;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.roi-grid strong {
+  color: var(--green);
+  font-size: clamp(1.8rem, 3.8vw, 3.2rem);
+  letter-spacing: -0.07em;
+}
+
+.roi-grid p, .recommendations, .decision-card p { color: var(--muted); line-height: 1.55; }
+
+.recommendations {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px 22px;
+  margin: 20px 0 0;
+  padding-left: 20px;
+}
+
+.packet-grid { grid-template-columns: repeat(3, 1fr); }
+
+.decision-card h3 {
+  color: var(--ink);
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  line-height: 1.35;
+}
+
+.decision-strip {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(255, 196, 107, 0.32);
+  border-radius: 18px;
+  padding: 12px 14px;
+  margin: 12px 0;
+  background: rgba(255, 196, 107, 0.07);
+  color: var(--gold);
+}
+
+.followups.mini { font-size: 0.9rem; padding-left: 18px; }
 
 .metrics article {
   border-radius: 24px;
@@ -383,12 +448,13 @@ form .button { grid-column: 1 / -1; }
 
 @media (max-width: 920px) {
   .hero-grid, .board-layout, .form-panel, .ops-grid { grid-template-columns: 1fr; }
-  .metrics { grid-template-columns: repeat(2, 1fr); }
+  .metrics, .roi-grid, .packet-grid, .recommendations { grid-template-columns: repeat(2, 1fr); }
   h1 { font-size: clamp(3.3rem, 16vw, 5.8rem); }
 }
 
 @media (max-width: 600px) {
-  .metrics, form { grid-template-columns: 1fr; }
+  .metrics, .roi-grid, .packet-grid, .recommendations, form { grid-template-columns: 1fr; }
   .nav a { display: none; }
-  .panel, .form-panel, .signal-card { border-radius: 24px; }
+  .panel, .form-panel, .signal-card, .roi-panel, .approval-panel { border-radius: 24px; }
+  .decision-strip { flex-direction: column; }
 }

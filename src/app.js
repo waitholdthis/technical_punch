@@ -1,10 +1,12 @@
 import './styles.css';
 import {
+  buildOwnerDecisionPacket,
   createInbox,
   demoLeads,
   draftLeadReply,
   generateFollowUpPlan,
   qualifyLead,
+  simulateRevenueImpact,
   summarizePipeline
 } from './core.js';
 
@@ -14,7 +16,16 @@ const business = {
   bookingLink: 'https://technicalpunch.example/book'
 };
 
-let leads = [...demoLeads];
+const savedLeads = (() => {
+  try {
+    const stored = localStorage.getItem('technicalPunchLeads');
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+})();
+
+let leads = Array.isArray(savedLeads) && savedLeads.length ? savedLeads : [...demoLeads];
 let selectedLeadId = leads[0].id;
 
 const sourceOptions = [
@@ -46,6 +57,9 @@ function render() {
   selectedLeadId = selected?.id;
   const reply = selected ? draftLeadReply(selected, business) : null;
   const followUps = selected ? generateFollowUpPlan(selected) : [];
+  const impact = simulateRevenueImpact(leads);
+  const ownerPackets = inbox.board.ownerAttention.map((lead) => buildOwnerDecisionPacket(lead, business));
+  const selectedPacket = selected ? buildOwnerDecisionPacket(selected, business) : null;
 
   document.querySelector('#app').innerHTML = `
     <main>
@@ -98,6 +112,41 @@ function render() {
         </article>
       </section>
 
+      <section class="shell roi-panel" id="roi-case">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Client ROI case</p>
+            <h2>Show the operator why this pays for itself.</h2>
+          </div>
+          <a class="button ghost" href="#approval-queue">Review owner packets</a>
+        </div>
+        <div class="roi-grid">
+          <article>
+            <span>Projected monthly lift</span>
+            <strong>${money(impact.economics.monthlyRevenueLift)}</strong>
+            <p>Based on moving capture from ${(impact.economics.assumptions.currentCaptureRate * 100).toFixed(0)}% to ${(impact.economics.assumptions.improvedCaptureRate * 100).toFixed(0)}% across similar monthly inquiry volume.</p>
+          </article>
+          <article>
+            <span>Net lift after platform</span>
+            <strong>${money(impact.economics.netMonthlyLift)}</strong>
+            <p>Assumes ${money(impact.economics.assumptions.monthlyPlatformCost)} / month software + ops cost.</p>
+          </article>
+          <article>
+            <span>Payback window</span>
+            <strong>${impact.economics.paybackDays} days</strong>
+            <p>${impact.economics.roiMultiple}× gross monthly ROI multiple on the demo pipeline.</p>
+          </article>
+          <article>
+            <span>At-risk stale revenue</span>
+            <strong>${money(impact.slaRisk.atRiskRevenue)}</strong>
+            <p>${impact.slaRisk.verdict}</p>
+          </article>
+        </div>
+        <ul class="recommendations">
+          ${impact.recommendations.map((item) => `<li>${item}</li>`).join('')}
+        </ul>
+      </section>
+
       <section class="shell board-layout" id="operator-board">
         <div class="panel wide">
           <div class="section-head">
@@ -111,8 +160,21 @@ function render() {
 
         <aside class="panel detail-panel">
           <p class="eyebrow">Live qualification</p>
-          ${selected ? renderSelectedLead(selected, reply, followUps) : '<p>No leads captured yet.</p>'}
+          ${selected ? renderSelectedLead(selected, reply, followUps, selectedPacket) : '<p>No leads captured yet.</p>'}
         </aside>
+      </section>
+
+      <section class="shell approval-panel" id="approval-queue">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Approve / edit / send</p>
+            <h2>Owner decision packets</h2>
+          </div>
+          <button class="button ghost export-packets" type="button">Export packets JSON</button>
+        </div>
+        <div class="packet-grid">
+          ${ownerPackets.map(renderDecisionPacket).join('') || '<p>No owner approvals required right now.</p>'}
+        </div>
       </section>
 
       <section class="shell ops-grid">
@@ -172,7 +234,7 @@ function renderLeadCard(lead) {
   `;
 }
 
-function renderSelectedLead(lead, reply, followUps) {
+function renderSelectedLead(lead, reply, followUps, packet) {
   return `
     <h2>${lead.name}</h2>
     <div class="badge-row">
@@ -185,6 +247,7 @@ function renderSelectedLead(lead, reply, followUps) {
     <div class="chips">${lead.detectedNeeds.map((need) => `<span>${need}</span>`).join('')}</div>
     <h3>Next action</h3>
     <p>${lead.nextAction}</p>
+    ${packet ? `<div class="decision-strip"><strong>${packet.decision.replaceAll('_', ' ')}</strong><span>${money(packet.revenueAtStake)} at stake</span></div>` : ''}
     <div id="reply-draft" class="reply-box">
       <p class="eyebrow">AI reply draft · ${reply.channel}</p>
       <strong>${reply.subject}</strong>
@@ -195,6 +258,24 @@ function renderSelectedLead(lead, reply, followUps) {
     <ol class="followups">
       ${followUps.map((step) => `<li><strong>+${step.afterHours}h</strong> ${step.message}</li>`).join('')}
     </ol>
+  `;
+}
+
+function renderDecisionPacket(packet) {
+  return `
+    <article class="decision-card">
+      <p class="eyebrow">${packet.decision.replaceAll('_', ' ')}</p>
+      <h3>${packet.headline}</h3>
+      <div class="badge-row">
+        <span>${packet.score}/100</span>
+        <span>${money(packet.revenueAtStake)}</span>
+      </div>
+      <p>${packet.nextAction}</p>
+      <div class="chips">${packet.riskFlags.map((flag) => `<span>${flag}</span>`).join('')}</div>
+      <ol class="followups mini">
+        ${packet.ownerChecklist.map((item) => `<li>${item}</li>`).join('')}
+      </ol>
+    </article>
   `;
 }
 
@@ -223,6 +304,7 @@ function bindEvents() {
       email: 'newlead@example.com'
     });
     leads = [lead, ...leads];
+    localStorage.setItem('technicalPunchLeads', JSON.stringify(leads));
     selectedLeadId = lead.id;
     render();
     document.querySelector('#operator-board')?.scrollIntoView({ behavior: 'smooth' });
@@ -232,6 +314,13 @@ function bindEvents() {
     const text = document.querySelector('.reply-box pre')?.innerText || '';
     if (navigator.clipboard) await navigator.clipboard.writeText(text);
     document.querySelector('.copy-reply').textContent = 'Copied';
+  });
+
+  document.querySelector('.export-packets')?.addEventListener('click', async () => {
+    const packets = createInbox(leads, business).board.ownerAttention.map((lead) => buildOwnerDecisionPacket(lead, business));
+    const payload = JSON.stringify({ exportedAt: new Date().toISOString(), packets }, null, 2);
+    if (navigator.clipboard) await navigator.clipboard.writeText(payload);
+    document.querySelector('.export-packets').textContent = 'Copied packet JSON';
   });
 }
 

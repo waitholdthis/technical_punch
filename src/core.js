@@ -257,6 +257,115 @@ export function summarizePipeline(leads = []) {
   };
 }
 
+export function calculateLeadEconomics(leads = [], assumptions = {}) {
+  const monthlyLeadMultiplier = Number(assumptions.monthlyLeadMultiplier || 4);
+  const currentCaptureRate = Number(assumptions.currentCaptureRate ?? 0.34);
+  const improvedCaptureRate = Number(assumptions.improvedCaptureRate ?? 0.52);
+  const monthlyPlatformCost = Number(assumptions.monthlyPlatformCost || 900);
+  const ranked = rankLeads(leads);
+  const activePipelineValue = ranked.reduce((sum, lead) => sum + lead.estimatedRevenue, 0);
+  const monthlyPipelineValue = Math.round(activePipelineValue * monthlyLeadMultiplier);
+  const currentExpectedRevenue = Math.round(monthlyPipelineValue * currentCaptureRate);
+  const improvedExpectedRevenue = Math.round(monthlyPipelineValue * improvedCaptureRate);
+  const monthlyRevenueLift = Math.max(0, improvedExpectedRevenue - currentExpectedRevenue);
+  const netMonthlyLift = monthlyRevenueLift - monthlyPlatformCost;
+  const paybackDays = netMonthlyLift > 0 ? Math.ceil((monthlyPlatformCost / netMonthlyLift) * 30) : Infinity;
+  const roiMultiple = monthlyPlatformCost > 0 ? Number((monthlyRevenueLift / monthlyPlatformCost).toFixed(1)) : Infinity;
+  const annualizedLift = monthlyRevenueLift * 12;
+
+  return {
+    activePipelineValue,
+    monthlyPipelineValue,
+    currentExpectedRevenue,
+    improvedExpectedRevenue,
+    monthlyRevenueLift,
+    netMonthlyLift,
+    paybackDays,
+    roiMultiple,
+    annualizedLift,
+    assumptions: {
+      monthlyLeadMultiplier,
+      currentCaptureRate,
+      improvedCaptureRate,
+      monthlyPlatformCost
+    }
+  };
+}
+
+function calculateSlaRisk(leads = []) {
+  const ranked = rankLeads(leads);
+  const highRiskLeads = ranked.filter((lead) => {
+    const age = Number(lead.responseAgeHours || 0);
+    const eventLead = ['private_event', 'vip_experience', 'catering', 'room_block'].includes(lead.intent);
+    return age >= 12 || (eventLead && age >= 4 && lead.estimatedRevenue >= 2500);
+  });
+  const atRiskRevenue = highRiskLeads.reduce((sum, lead) => sum + lead.estimatedRevenue, 0);
+  const staleHighValueCount = highRiskLeads.filter((lead) => lead.estimatedRevenue >= 2500).length;
+
+  return {
+    highRiskLeads,
+    atRiskRevenue,
+    staleHighValueCount,
+    verdict: highRiskLeads.length
+      ? `${highRiskLeads.length} inquiry lanes need a faster owner response before revenue leaks.`
+      : 'No active SLA leaks detected.'
+  };
+}
+
+export function simulateRevenueImpact(leads = [], assumptions = {}) {
+  const economics = calculateLeadEconomics(leads, assumptions);
+  const slaRisk = calculateSlaRisk(leads);
+  const recoveryTarget = Math.round(economics.monthlyRevenueLift * 0.55);
+  const recommendations = [
+    `Recover roughly ${currency(recoveryTarget)} / month by responding faster to high-value event inquiries.`,
+    `Protect ${currency(slaRisk.atRiskRevenue)} currently sitting in stale or owner-review lanes.`,
+    'Route every whale lead into approve/edit/send instead of letting staff improvise from the inbox.',
+    'Use follow-up automation to close the loop without sounding desperate or spammy.'
+  ];
+
+  return {
+    economics,
+    slaRisk,
+    recommendations
+  };
+}
+
+export function buildOwnerDecisionPacket(lead, business = {}) {
+  const qualified = qualifyLead(lead);
+  const reply = draftLeadReply(qualified, business);
+  const eventLead = ['private_event', 'vip_experience', 'catering', 'room_block'].includes(qualified.intent);
+  const riskFlags = [];
+
+  if (qualified.estimatedRevenue >= 2500) riskFlags.push('high-value event');
+  if (eventLead && qualified.requestedDate) riskFlags.push('soft-hold recommended');
+  if (Number(qualified.responseAgeHours || 0) >= 12) riskFlags.push('response SLA risk');
+  if (qualified.sentiment === 'shopping') riskFlags.push('comparison shopper');
+
+  const decision = reply.approvalRequired
+    ? 'approve_with_owner_review'
+    : qualified.urgency === 'hot'
+      ? 'approve_to_send'
+      : 'edit_then_schedule';
+
+  return {
+    leadId: qualified.id,
+    headline: `${qualified.name} · ${qualified.intentLabel} · ${currency(qualified.estimatedRevenue)} at stake`,
+    decision,
+    revenueAtStake: qualified.estimatedRevenue,
+    score: qualified.conversionScore,
+    riskFlags,
+    ownerChecklist: [
+      'Confirm date availability',
+      'Approve reply tone',
+      'Assign owner or event manager',
+      eventLead ? 'Choose premium and flexible package paths' : 'Confirm booking window'
+    ],
+    reply,
+    followUps: generateFollowUpPlan(qualified),
+    nextAction: qualified.nextAction
+  };
+}
+
 export function createInbox(leads = demoLeads, business = {}) {
   const ranked = rankLeads(leads);
   return {

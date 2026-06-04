@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildOwnerDecisionPacket,
+  calculateLeadEconomics,
   demoLeads,
   draftLeadReply,
   generateFollowUpPlan,
   organizeRevenueBoard,
   qualifyLead,
   rankLeads,
+  simulateRevenueImpact,
   summarizePipeline
 } from '../src/core.js';
 
@@ -111,5 +114,47 @@ describe('Technical Punch hospitality conversion engine', () => {
     expect(summary.topLead).toHaveProperty('conversionScore');
     expect(summary.sourceMix.instagram_dm).toBeGreaterThan(0);
     expect(summary.ownerBrief).toContain('highest-converting inquiry');
+  });
+
+  it('calculates economic lift and payback math from faster response operations', () => {
+    const economics = calculateLeadEconomics(leads, {
+      currentCaptureRate: 0.34,
+      improvedCaptureRate: 0.52,
+      monthlyLeadMultiplier: 4,
+      monthlyPlatformCost: 900
+    });
+
+    expect(economics.monthlyPipelineValue).toBe(72640);
+    expect(economics.currentExpectedRevenue).toBe(24698);
+    expect(economics.improvedExpectedRevenue).toBe(37773);
+    expect(economics.monthlyRevenueLift).toBe(13075);
+    expect(economics.netMonthlyLift).toBe(12175);
+    expect(economics.paybackDays).toBeLessThanOrEqual(3);
+    expect(economics.roiMultiple).toBeGreaterThan(14);
+  });
+
+  it('simulates the owner-visible ROI impact with SLA risk and lost opportunity', () => {
+    const impact = simulateRevenueImpact(leads, {
+      monthlyLeadMultiplier: 4,
+      currentCaptureRate: 0.34,
+      improvedCaptureRate: 0.52,
+      monthlyPlatformCost: 900
+    });
+
+    expect(impact.economics.monthlyRevenueLift).toBeGreaterThan(12000);
+    expect(impact.slaRisk.highRiskLeads.map((lead) => lead.id)).toContain('lead-003');
+    expect(impact.slaRisk.atRiskRevenue).toBeGreaterThanOrEqual(12000);
+    expect(impact.recommendations[0]).toContain('Recover');
+  });
+
+  it('builds owner decision packets for approve/edit/send workflows', () => {
+    const packet = buildOwnerDecisionPacket(leads[0], { businessName: 'Ember & Rye' });
+
+    expect(packet.headline).toContain('Sofia Maren');
+    expect(packet.decision).toBe('approve_with_owner_review');
+    expect(packet.revenueAtStake).toBe(6000);
+    expect(packet.riskFlags).toEqual(expect.arrayContaining(['high-value event', 'soft-hold recommended']));
+    expect(packet.ownerChecklist).toEqual(expect.arrayContaining(['Confirm date availability', 'Approve reply tone', 'Assign owner or event manager']));
+    expect(packet.reply.approvalRequired).toBe(true);
   });
 });
