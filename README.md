@@ -15,6 +15,8 @@ It is built to capture inquiries from website forms, Instagram DMs, and inquiry 
 - switch between buyer-ready vertical presets for restaurants, venues, med spas, boutique hotels, and luxury services
 - show believable integration lanes for sales demos before production APIs are connected
 - run a missed-revenue audit that turns inquiry volume and capture rate into a dollar estimate
+- recommend the right commercial package from the audit intensity
+- generate a Buyer Proof Room packet with sales summary, integration readiness, next steps, and copy/export actions
 
 This repository contains a front-end MVP with a deterministic conversion engine and cinematic operator dashboard. No API keys, credentials, or live customer data are required.
 
@@ -52,6 +54,8 @@ Operators can add a new inquiry through the simulator and see the OS qualify it 
 - `getVerticalPreset(id)`
 - `buildIntegrationStatus(preset)`
 - `calculateMissedRevenueAudit(inputs, preset)`
+- `recommendTechnicalPunchPackage(audit, preset)`
+- `buildBuyerProofPacket({ preset, audit, integrations })`
 - `createInbox(leads, business)`
 
 The score considers:
@@ -114,6 +118,18 @@ Each preset changes the demo story, capture-rate assumptions, integration lanes,
 - stale revenue at risk
 - annualized opportunity
 - payback window
+
+### Buyer Proof Room
+
+The Buyer Proof Room turns the audit into a sales-closing packet. It combines the selected vertical, audit math, package recommendation, integration readiness, owner-safety policy, and next steps into a copyable/printable owner-facing proof asset.
+
+The deterministic package recommendation engine supports three sales motions:
+
+- Starter Capture OS for lower-volume capture discipline
+- Growth Lead OS for consistent inquiry flow and follow-up automation
+- Command Center for high-volume or high-ticket operators that need decision packets and integration handoffs
+
+The UI can copy the sales summary, copy structured proof JSON, or print the proof packet for an owner conversation.
 
 ### Integration command center
 

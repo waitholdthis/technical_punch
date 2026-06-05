@@ -1,5 +1,6 @@
 import './styles.css';
 import {
+  buildBuyerProofPacket,
   buildIntegrationStatus,
   buildOwnerDecisionPacket,
   calculateMissedRevenueAudit,
@@ -9,6 +10,7 @@ import {
   generateFollowUpPlan,
   getVerticalPreset,
   qualifyLead,
+  recommendTechnicalPunchPackage,
   simulateRevenueImpact,
   summarizePipeline,
   verticalPresets
@@ -96,6 +98,8 @@ function render() {
   });
   const audit = calculateMissedRevenueAudit(auditInputs || {}, preset);
   const integrations = buildIntegrationStatus(preset);
+  const proofPacket = buildBuyerProofPacket({ preset, audit, integrations });
+  const packageRecommendation = recommendTechnicalPunchPackage(audit, preset);
   const ownerPackets = inbox.board.ownerAttention.map((lead) => buildOwnerDecisionPacket(lead, business));
   const selectedPacket = selected ? buildOwnerDecisionPacket(selected, business) : null;
 
@@ -104,7 +108,8 @@ function render() {
       ${renderSalesLanding(summary, impact, audit, preset)}
       ${renderVerticalPresets(preset)}
       ${renderIntegrationPanel(integrations, preset)}
-      ${renderAuditFlow(audit, preset)}
+      ${renderAuditFlow(audit, preset, packageRecommendation)}
+      ${renderBuyerProofRoom(proofPacket)}
 
       <section class="metrics shell" aria-label="Pipeline metrics">
         <article>
@@ -236,6 +241,7 @@ function renderSalesLanding(summary, impact, audit, preset) {
         <span>Technical Punch</span>
         <a href="#verticals">Vertical presets</a>
         <a href="#missed-revenue-audit">Run audit</a>
+        <a href="#buyer-proof-room">Proof room</a>
         <a href="#operator-board">Command floor</a>
       </nav>
 
@@ -249,6 +255,7 @@ function renderSalesLanding(summary, impact, audit, preset) {
           </p>
           <div class="hero-actions">
             <a class="button primary" href="#missed-revenue-audit">Estimate missed revenue</a>
+            <a class="button ghost" href="#buyer-proof-room">Build proof packet</a>
             <a class="button ghost" href="#integrations">View integrations</a>
             <a class="button ghost" href="#operator-board">Open demo app</a>
           </div>
@@ -322,7 +329,7 @@ function renderIntegrationPanel(integrations, preset) {
   `;
 }
 
-function renderAuditFlow(audit, preset) {
+function renderAuditFlow(audit, preset, packageRecommendation) {
   const assumptions = audit.assumptions;
   return `
     <section class="shell audit-panel" id="missed-revenue-audit">
@@ -336,6 +343,11 @@ function renderAuditFlow(audit, preset) {
           <article><span>Stale revenue at risk</span><strong>${money(audit.staleRevenueAtRisk)}</strong></article>
           <article><span>Payback</span><strong>${audit.paybackDays} days</strong></article>
         </div>
+        <div class="package-strip">
+          <span>Recommended package</span>
+          <strong>${packageRecommendation.tier}</strong>
+          <em>${packageRecommendation.priceAnchor}</em>
+        </div>
       </div>
       <form id="auditForm" class="audit-form">
         <label>Weekly inquiry volume <input name="weeklyInquiryVolume" type="number" min="1" value="${assumptions.weeklyInquiryVolume}" /></label>
@@ -346,6 +358,85 @@ function renderAuditFlow(audit, preset) {
         <label>Platform cost <input name="monthlyPlatformCost" type="number" min="0" value="${assumptions.monthlyPlatformCost}" /></label>
         <button class="button primary" type="submit">Recalculate ${preset.label} audit</button>
       </form>
+    </section>
+  `;
+}
+
+function renderBuyerProofRoom(packet) {
+  return `
+    <section class="shell proof-room" id="buyer-proof-room">
+      <div class="proof-room-header">
+        <div>
+          <p class="eyebrow">Buyer Proof Room</p>
+          <h2>Generate the owner-facing sales packet.</h2>
+          <p>${packet.executiveSummary}</p>
+        </div>
+        <div class="proof-actions">
+          <button class="button primary copy-proof" type="button">Copy sales summary</button>
+          <button class="button ghost export-proof" type="button">Copy proof JSON</button>
+          <button class="button ghost print-proof" type="button">Print packet</button>
+        </div>
+      </div>
+
+      <div class="proof-grid">
+        <article class="proof-hero-card">
+          <span>${packet.vertical}</span>
+          <h3>${packet.headline}</h3>
+          <p>${packet.packageRecommendation.promise}</p>
+        </article>
+        <article>
+          <span>Recommended package</span>
+          <strong>${packet.packageRecommendation.tier}</strong>
+          <em>${packet.packageRecommendation.priceAnchor}</em>
+          <p>${packet.packageRecommendation.fit}</p>
+        </article>
+        <article>
+          <span>Annualized opportunity</span>
+          <strong>${money(packet.auditSnapshot.annualizedOpportunity)}</strong>
+          <p>${packet.auditSnapshot.paybackDays} day payback window on the current assumptions.</p>
+        </article>
+      </div>
+
+      <div class="proof-columns">
+        <article>
+          <h3>Commercial case</h3>
+          <ul>
+            <li>${packet.auditSnapshot.monthlyInquiryVolume} monthly inquiries modeled.</li>
+            <li>${money(packet.auditSnapshot.monthlyPipelineValue)} in monthly pipeline value.</li>
+            <li>${money(packet.auditSnapshot.monthlyLift)} projected monthly lift.</li>
+            <li>${money(packet.auditSnapshot.staleRevenueAtRisk)} stale revenue at risk.</li>
+          </ul>
+        </article>
+        <article>
+          <h3>Package includes</h3>
+          <ul>${packet.packageRecommendation.includes.map((item) => `<li>${item}</li>`).join('')}</ul>
+        </article>
+        <article>
+          <h3>Next steps</h3>
+          <ol>${packet.nextSteps.map((item) => `<li>${item}</li>`).join('')}</ol>
+        </article>
+      </div>
+
+      <div class="readiness-board">
+        <div class="section-head compact">
+          <div>
+            <p class="eyebrow">Integration readiness</p>
+            <h2>Believable now. Connectable later.</h2>
+          </div>
+          <span class="section-kicker">${packet.ownerSafetyPolicy}</span>
+        </div>
+        <div class="readiness-grid">
+          ${packet.integrationReadiness.map((lane) => `
+            <article>
+              <span>${lane.status}</span>
+              <strong>${lane.name}</strong>
+              <em>${lane.note}</em>
+            </article>
+          `).join('')}
+        </div>
+      </div>
+
+      <pre class="proof-copy">${packet.copyBlock}</pre>
     </section>
   `;
 }
@@ -478,6 +569,24 @@ function bindEvents() {
     if (navigator.clipboard) await navigator.clipboard.writeText(payload);
     document.querySelector('.export-packets').textContent = 'Copied packet JSON';
   });
+
+  document.querySelector('.copy-proof')?.addEventListener('click', async () => {
+    const text = document.querySelector('.proof-copy')?.innerText || '';
+    if (navigator.clipboard) await navigator.clipboard.writeText(text);
+    document.querySelector('.copy-proof').textContent = 'Copied sales summary';
+  });
+
+  document.querySelector('.export-proof')?.addEventListener('click', async () => {
+    const preset = currentPreset();
+    const audit = calculateMissedRevenueAudit(auditInputs || {}, preset);
+    const integrations = buildIntegrationStatus(preset);
+    const packet = buildBuyerProofPacket({ preset, audit, integrations });
+    const payload = JSON.stringify(packet, null, 2);
+    if (navigator.clipboard) await navigator.clipboard.writeText(payload);
+    document.querySelector('.export-proof').textContent = 'Copied proof JSON';
+  });
+
+  document.querySelector('.print-proof')?.addEventListener('click', () => window.print());
 }
 
 render();

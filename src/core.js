@@ -160,6 +160,77 @@ export function calculateMissedRevenueAudit(inputs = {}, preset = getVerticalPre
   };
 }
 
+export function recommendTechnicalPunchPackage(audit = {}, preset = getVerticalPreset()) {
+  const monthlyLift = Number(audit.monthlyLift || 0);
+  const monthlyInquiryVolume = Number(audit.monthlyInquiryVolume || 0);
+  const paybackDays = Number.isFinite(audit.paybackDays) ? Number(audit.paybackDays) : 999;
+
+  if (monthlyLift >= 50000 || monthlyInquiryVolume >= 150 || paybackDays <= 1) {
+    return {
+      tier: 'Command Center',
+      priceAnchor: '$2.5k–$4k/mo pilot',
+      fit: 'High-volume or high-ticket operators that need a complete owner command layer.',
+      promise: `Stand up a ${preset.label.toLowerCase()} proof room with decision packets, integration handoffs, and daily owner visibility.`,
+      includes: ['Multi-channel intake map', 'Owner decision packets', 'Integration handoff board', 'Weekly revenue leakage review'],
+      cta: 'Book implementation workshop'
+    };
+  }
+
+  if (monthlyLift >= 12000 || monthlyInquiryVolume >= 60 || paybackDays <= 4) {
+    return {
+      tier: 'Growth Lead OS',
+      priceAnchor: '$1.5k–$2.5k/mo pilot',
+      fit: 'Operators with consistent inquiry flow who need capture, scoring, and follow-up discipline.',
+      promise: `Recover missed ${preset.label.toLowerCase()} revenue by routing every serious inquiry through owner-safe automation.`,
+      includes: ['Website/email/DM capture lanes', 'Audit dashboard', 'Reply drafting', 'Follow-up automation'],
+      cta: 'Launch 14-day conversion sprint'
+    };
+  }
+
+  return {
+    tier: 'Starter Capture OS',
+    priceAnchor: '$750–$1.5k/mo pilot',
+    fit: 'Lower-volume teams that still need fast response, clean capture, and proof before deeper integrations.',
+    promise: `Create a lightweight ${preset.label.toLowerCase()} capture desk before missed inquiries become invisible.`,
+    includes: ['Lead intake snapshot', 'Manual approval workflow', 'Weekly proof summary', 'Basic stale-lead alerts'],
+    cta: 'Start with capture audit'
+  };
+}
+
+export function buildBuyerProofPacket({ preset = getVerticalPreset(), audit = calculateMissedRevenueAudit({}, preset), integrations = buildIntegrationStatus(preset) } = {}) {
+  const packageRecommendation = recommendTechnicalPunchPackage(audit, preset);
+  const integrationReadiness = integrations.map((lane) => ({
+    name: lane.name,
+    status: lane.status,
+    ownerSafe: lane.ownerSafe,
+    note: lane.ownerSafe ? 'safe for demo automation' : 'requires human review guardrail'
+  }));
+  const headline = `${preset.businessName} could recover ${currency(audit.monthlyLift)} / month with Technical Punch`;
+  const executiveSummary = `${preset.label} proof: ${audit.monthlyInquiryVolume} monthly inquiries represent ${currency(audit.monthlyPipelineValue)} in pipeline. Moving capture from ${Math.round(audit.assumptions.currentCaptureRate * 100)}% to ${Math.round(audit.assumptions.improvedCaptureRate * 100)}% creates ${currency(audit.monthlyLift)} in monthly lift and supports the ${packageRecommendation.tier} package.`;
+
+  return {
+    generatedAt: new Date(0).toISOString(),
+    presetId: preset.id,
+    businessName: preset.businessName,
+    vertical: preset.label,
+    headline,
+    executiveSummary,
+    auditSnapshot: {
+      monthlyInquiryVolume: audit.monthlyInquiryVolume,
+      monthlyPipelineValue: audit.monthlyPipelineValue,
+      monthlyLift: audit.monthlyLift,
+      staleRevenueAtRisk: audit.staleRevenueAtRisk,
+      annualizedOpportunity: audit.annualizedOpportunity,
+      paybackDays: audit.paybackDays
+    },
+    packageRecommendation,
+    integrationReadiness,
+    ownerSafetyPolicy: preset.ownerPolicy,
+    nextSteps: ['Confirm inquiry sources', 'Pick approval rules', 'Launch owner-safe pilot'],
+    copyBlock: `${headline}\n${executiveSummary}\nRecommended package: ${packageRecommendation.tier} (${packageRecommendation.priceAnchor}).\nNext step: ${packageRecommendation.cta}.`
+  };
+}
+
 export const demoLeads = [
   {
     id: 'aurora-001',

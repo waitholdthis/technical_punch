@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildBuyerProofPacket,
   buildIntegrationStatus,
   buildOwnerDecisionPacket,
   calculateLeadEconomics,
@@ -11,6 +12,7 @@ import {
   organizeRevenueBoard,
   qualifyLead,
   rankLeads,
+  recommendTechnicalPunchPackage,
   simulateRevenueImpact,
   summarizePipeline,
   verticalPresets
@@ -193,5 +195,36 @@ describe('Technical Punch hospitality conversion engine', () => {
     expect(audit.staleRevenueAtRisk).toBe(23958);
     expect(audit.paybackDays).toBeLessThanOrEqual(1);
     expect(audit.verdict).toContain('justify Technical Punch');
+  });
+
+  it('recommends the right commercial package from audit intensity', () => {
+    const starter = recommendTechnicalPunchPackage({ monthlyLift: 4200, monthlyInquiryVolume: 26, paybackDays: 9 }, getVerticalPreset('med_spa'));
+    const growth = recommendTechnicalPunchPackage({ monthlyLift: 22000, monthlyInquiryVolume: 92, paybackDays: 3 }, getVerticalPreset('restaurant'));
+    const command = recommendTechnicalPunchPackage({ monthlyLift: 76000, monthlyInquiryVolume: 180, paybackDays: 1 }, getVerticalPreset('event_venue'));
+
+    expect(starter.tier).toBe('Starter Capture OS');
+    expect(growth.tier).toBe('Growth Lead OS');
+    expect(command.tier).toBe('Command Center');
+    expect(command.priceAnchor).toContain('$2.5k');
+  });
+
+  it('builds a buyer proof packet with audit math, package, integrations, and copyable summary', () => {
+    const preset = getVerticalPreset('boutique_hotel');
+    const audit = calculateMissedRevenueAudit({
+      weeklyInquiryVolume: 42,
+      averageLeadValue: 3100,
+      currentCaptureRate: 0.28,
+      improvedCaptureRate: 0.51,
+      staleLeadPercent: 0.18,
+      monthlyPlatformCost: 1100
+    }, preset);
+    const integrations = buildIntegrationStatus(preset);
+    const packet = buildBuyerProofPacket({ preset, audit, integrations });
+
+    expect(packet.headline).toContain('The Meridian House');
+    expect(packet.packageRecommendation.tier).toBe('Command Center');
+    expect(packet.executiveSummary).toContain('Boutique hotel');
+    expect(packet.integrationReadiness[0]).toMatchObject({ name: 'Inquiry email', status: 'live demo feed' });
+    expect(packet.nextSteps).toEqual(expect.arrayContaining(['Confirm inquiry sources', 'Pick approval rules', 'Launch owner-safe pilot']));
   });
 });
