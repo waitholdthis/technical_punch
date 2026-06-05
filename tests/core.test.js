@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildIntegrationStatus,
   buildOwnerDecisionPacket,
   calculateLeadEconomics,
+  calculateMissedRevenueAudit,
   demoLeads,
   draftLeadReply,
   generateFollowUpPlan,
+  getVerticalPreset,
   organizeRevenueBoard,
   qualifyLead,
   rankLeads,
   simulateRevenueImpact,
-  summarizePipeline
+  summarizePipeline,
+  verticalPresets
 } from '../src/core.js';
 
 const leads = [
@@ -156,5 +160,38 @@ describe('Technical Punch hospitality conversion engine', () => {
     expect(packet.riskFlags).toEqual(expect.arrayContaining(['high-value event', 'soft-hold recommended']));
     expect(packet.ownerChecklist).toEqual(expect.arrayContaining(['Confirm date availability', 'Approve reply tone', 'Assign owner or event manager']));
     expect(packet.reply.approvalRequired).toBe(true);
+  });
+
+  it('ships vertical presets for buyer-ready sales demos', () => {
+    expect(verticalPresets).toHaveLength(5);
+    expect(verticalPresets.map((preset) => preset.id)).toEqual(expect.arrayContaining(['restaurant', 'event_venue', 'med_spa', 'boutique_hotel', 'luxury_service']));
+    expect(getVerticalPreset('med_spa')).toMatchObject({ label: 'Med spa', businessName: 'Luma Skin Studio' });
+  });
+
+  it('models integration lanes with demo status and owner-safety metadata', () => {
+    const preset = getVerticalPreset('boutique_hotel');
+    const integrations = buildIntegrationStatus(preset);
+
+    expect(integrations).toHaveLength(preset.integrationLanes.length);
+    expect(integrations[0]).toMatchObject({ status: 'live demo feed' });
+    expect(integrations.map((lane) => lane.name)).toContain('PMS handoff');
+  });
+
+  it('calculates a missed revenue audit for a prospect before the demo', () => {
+    const audit = calculateMissedRevenueAudit({
+      weeklyInquiryVolume: 28,
+      averageLeadValue: 2200,
+      currentCaptureRate: 0.3,
+      improvedCaptureRate: 0.5,
+      staleLeadPercent: 0.2,
+      monthlyPlatformCost: 1000
+    }, getVerticalPreset('restaurant'));
+
+    expect(audit.monthlyInquiryVolume).toBe(121);
+    expect(audit.monthlyPipelineValue).toBe(266200);
+    expect(audit.monthlyLift).toBe(53240);
+    expect(audit.staleRevenueAtRisk).toBe(23958);
+    expect(audit.paybackDays).toBeLessThanOrEqual(1);
+    expect(audit.verdict).toContain('justify Technical Punch');
   });
 });

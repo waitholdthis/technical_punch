@@ -455,6 +455,87 @@ form .button { grid-column: 1 / -1; }
 @media (max-width: 600px) {
   .metrics, .roi-grid, .packet-grid, .recommendations, form { grid-template-columns: 1fr; }
   .nav a { display: none; }
-  .panel, .form-panel, .signal-card, .roi-panel, .approval-panel { border-radius: 24px; }
+  .panel, .form-panel, .signal-card, .roi-panel, .approval-panel, .vertical-panel, .integration-panel, .audit-panel { border-radius: 24px; }
   .decision-strip { flex-direction: column; }
 }
+
+.sales-hero-grid { padding-top: 54px; }
+.nav a + a { margin-left: 0; }
+.nav a:first-of-type { margin-left: auto; }
+
+.proof-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.proof-strip span, .section-kicker {
+  border: 1px solid rgba(102, 240, 180, 0.24);
+  border-radius: 999px;
+  padding: 9px 12px;
+  color: var(--green);
+  background: rgba(102, 240, 180, 0.06);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.sales-card h2 { font-size: clamp(2rem, 4vw, 3.5rem); }
+
+.vertical-panel, .integration-panel, .audit-panel {
+  border: 1px solid var(--line);
+  border-radius: 34px;
+  padding: 28px;
+  margin-bottom: 24px;
+  background: linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.025)), radial-gradient(circle at 0 0, rgba(255, 196, 107, 0.1), transparent 24rem);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+}
+
+.vertical-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.vertical-card {
+  min-height: 210px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  padding: 18px;
+  color: var(--ink);
+  background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02)), rgba(0,0,0,0.16);
+  cursor: pointer;
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+.vertical-card:hover, .vertical-card.active {
+  transform: translateY(-3px);
+  border-color: rgba(255, 196, 107, 0.62);
+  background: rgba(255, 196, 107, 0.08);
+  box-shadow: 0 18px 55px rgba(255, 107, 95, 0.12);
+}
+.vertical-card span { display: block; color: var(--green); text-transform: uppercase; letter-spacing: 0.13em; font-size: 0.66rem; font-weight: 900; margin-bottom: 14px; }
+.vertical-card strong { display: block; font-size: 1.22rem; letter-spacing: -0.04em; margin-bottom: 12px; }
+.vertical-card em { display: block; color: var(--muted); font-style: normal; line-height: 1.5; margin-bottom: 16px; }
+.vertical-card b { display: block; margin-top: auto; color: var(--gold); }
+
+.integration-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.integration-card { border: 1px solid var(--line); border-radius: 24px; padding: 20px; background: rgba(0,0,0,0.18); }
+.integration-card div { display: flex; align-items: center; gap: 9px; }
+.integration-card div p { color: var(--green); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.66rem; font-weight: 900; margin-bottom: 0; }
+.status-dot { width: 10px; height: 10px; border-radius: 999px; background: var(--green); box-shadow: 0 0 18px rgba(102, 240, 180, 0.7); }
+.integration-card h3 { color: var(--ink); font-size: 1rem; letter-spacing: -0.02em; text-transform: none; }
+.integration-card strong { display: block; color: var(--gold); font-size: 1.8rem; letter-spacing: -0.06em; margin-bottom: 8px; }
+.integration-card p, .integration-card em, .audit-copy p { color: var(--muted); line-height: 1.55; }
+.integration-card em { display: block; font-style: normal; color: var(--green); margin-top: 14px; }
+
+.audit-panel { display: grid; grid-template-columns: 0.95fr 1.05fr; gap: 24px; align-items: start; }
+.audit-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 22px; }
+.audit-stats article { border: 1px solid var(--line); border-radius: 22px; padding: 18px; background: rgba(0,0,0,0.18); }
+.audit-stats span { color: var(--muted); display: block; margin-bottom: 7px; }
+.audit-stats strong { font-size: clamp(1.45rem, 3vw, 2.5rem); letter-spacing: -0.07em; color: var(--green); }
+.audit-form { border: 1px solid var(--line); border-radius: 28px; padding: 20px; background: rgba(0,0,0,0.2); }
+.audit-form .button { grid-column: 1 / -1; }
+
+@media (max-width: 1100px) {
+  .vertical-grid { grid-template-columns: repeat(2, 1fr); }
+  .integration-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 920px) { .audit-panel { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .vertical-grid, .integration-grid, .audit-stats { grid-template-columns: 1fr; } }

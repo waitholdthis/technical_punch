@@ -12,6 +12,154 @@ const SOURCE_LABELS = {
   email: 'inquiry email'
 };
 
+
+export const verticalPresets = [
+  {
+    id: 'restaurant',
+    label: 'Restaurant group',
+    tagline: 'Private dining, large-party reservations, and premium table conversion.',
+    businessName: 'Aurora Table Group',
+    operator: 'Owner + event manager',
+    heroMetric: '$28k recovered monthly pipeline',
+    primaryIntent: 'private_event',
+    leadMix: 'Instagram DMs, inquiry email, website private dining forms',
+    captureRate: 0.34,
+    improvedCaptureRate: 0.52,
+    avgLeadValue: 1800,
+    monthlyLeadMultiplier: 4,
+    monthlyPlatformCost: 900,
+    integrationLanes: ['Website forms', 'Instagram DMs', 'Inquiry email', 'Google Sheets export'],
+    ownerPolicy: 'High-value events require owner review before send; reservations can auto-draft.'
+  },
+  {
+    id: 'event_venue',
+    label: 'Event venue',
+    tagline: 'Weddings, corporate buyouts, tours, deposits, and soft holds.',
+    businessName: 'Northline Hall',
+    operator: 'Venue director',
+    heroMetric: '$73k protected booking pipeline',
+    primaryIntent: 'private_event',
+    leadMix: 'The Knot-style forms, email, site tours, planner referrals',
+    captureRate: 0.29,
+    improvedCaptureRate: 0.47,
+    avgLeadValue: 6200,
+    monthlyLeadMultiplier: 2.6,
+    monthlyPlatformCost: 1250,
+    integrationLanes: ['Website forms', 'Inquiry email', 'Calendar holds', 'CRM handoff'],
+    ownerPolicy: 'Deposit-ready leads become decision packets with tour and contract checklists.'
+  },
+  {
+    id: 'med_spa',
+    label: 'Med spa',
+    tagline: 'Consult requests, treatment packages, memberships, and no-show rescue.',
+    businessName: 'Luma Skin Studio',
+    operator: 'Practice manager',
+    heroMetric: '$19k consult leakage exposed',
+    primaryIntent: 'vip_experience',
+    leadMix: 'Instagram DMs, website consult forms, missed calls, email',
+    captureRate: 0.38,
+    improvedCaptureRate: 0.58,
+    avgLeadValue: 950,
+    monthlyLeadMultiplier: 5,
+    monthlyPlatformCost: 850,
+    integrationLanes: ['Website forms', 'Instagram DMs', 'Missed-call log', 'Booking link'],
+    ownerPolicy: 'Clinical questions stay owner-safe; the system pushes booking, deposits, and consult prep.'
+  },
+  {
+    id: 'boutique_hotel',
+    label: 'Boutique hotel',
+    tagline: 'Group blocks, upgrades, local experiences, and concierge inquiry control.',
+    businessName: 'The Meridian House',
+    operator: 'GM + front desk lead',
+    heroMetric: '$41k group-block upside',
+    primaryIntent: 'room_block',
+    leadMix: 'Group block forms, reservation email, concierge requests, social DMs',
+    captureRate: 0.31,
+    improvedCaptureRate: 0.49,
+    avgLeadValue: 2700,
+    monthlyLeadMultiplier: 3.4,
+    monthlyPlatformCost: 1100,
+    integrationLanes: ['Inquiry email', 'Website forms', 'PMS handoff', 'Concierge queue'],
+    ownerPolicy: 'Group blocks route to GM approval; concierge upsells get drafted instantly.'
+  },
+  {
+    id: 'luxury_service',
+    label: 'Luxury service business',
+    tagline: 'High-ticket consultations, priority callbacks, proposal follow-up, and whale detection.',
+    businessName: 'Monarch Bespoke Services',
+    operator: 'Founder-led sales desk',
+    heroMetric: '$56k proposal follow-up lane',
+    primaryIntent: 'catering',
+    leadMix: 'Site consult forms, referral email, Instagram DMs, proposal replies',
+    captureRate: 0.27,
+    improvedCaptureRate: 0.46,
+    avgLeadValue: 4200,
+    monthlyLeadMultiplier: 3,
+    monthlyPlatformCost: 1200,
+    integrationLanes: ['Website forms', 'Inquiry email', 'Proposal CRM', 'Owner SMS digest'],
+    ownerPolicy: 'Founder only handles whales; the OS drafts the rest and keeps every proposal warm.'
+  }
+];
+
+export function getVerticalPreset(id = 'restaurant') {
+  return verticalPresets.find((preset) => preset.id === id) || verticalPresets[0];
+}
+
+export function buildIntegrationStatus(preset = getVerticalPreset()) {
+  const lanes = preset.integrationLanes || [];
+  return lanes.map((name, index) => ({
+    name,
+    status: index < 2 ? 'live demo feed' : index === 2 ? 'ready to connect' : 'export-ready',
+    latency: index < 2 ? `${index + 1}.${index + 4}s` : 'manual approval',
+    ownerSafe: !/Instagram|missed/i.test(name) || preset.id !== 'med_spa',
+    description: index < 2
+      ? `${name} is modeled as an active inbound lane for qualification and reply drafting.`
+      : `${name} is staged as a credible production handoff for the sales demo.`
+  }));
+}
+
+export function calculateMissedRevenueAudit(inputs = {}, preset = getVerticalPreset()) {
+  const weeklyInquiryVolume = Number(inputs.weeklyInquiryVolume ?? 32);
+  const averageLeadValue = Number(inputs.averageLeadValue ?? preset.avgLeadValue ?? 1800);
+  const currentCaptureRate = Number(inputs.currentCaptureRate ?? preset.captureRate ?? 0.34);
+  const improvedCaptureRate = Number(inputs.improvedCaptureRate ?? preset.improvedCaptureRate ?? 0.52);
+  const staleLeadPercent = Number(inputs.staleLeadPercent ?? 0.22);
+  const monthlyPlatformCost = Number(inputs.monthlyPlatformCost ?? preset.monthlyPlatformCost ?? 900);
+  const monthlyInquiryVolume = Math.round(weeklyInquiryVolume * 4.33);
+  const monthlyPipelineValue = Math.round(monthlyInquiryVolume * averageLeadValue);
+  const currentCapturedRevenue = Math.round(monthlyPipelineValue * currentCaptureRate);
+  const improvedCapturedRevenue = Math.round(monthlyPipelineValue * improvedCaptureRate);
+  const monthlyLift = Math.max(0, improvedCapturedRevenue - currentCapturedRevenue);
+  const staleRevenueAtRisk = Math.round(monthlyPipelineValue * staleLeadPercent * 0.45);
+  const netMonthlyLift = monthlyLift - monthlyPlatformCost;
+  const annualizedOpportunity = monthlyLift * 12;
+  const paybackDays = netMonthlyLift > 0 ? Math.ceil((monthlyPlatformCost / netMonthlyLift) * 30) : Infinity;
+
+  return {
+    presetId: preset.id,
+    monthlyInquiryVolume,
+    monthlyPipelineValue,
+    currentCapturedRevenue,
+    improvedCapturedRevenue,
+    monthlyLift,
+    staleRevenueAtRisk,
+    netMonthlyLift,
+    annualizedOpportunity,
+    paybackDays,
+    verdict: monthlyLift > monthlyPlatformCost
+      ? `${preset.label} operators could justify Technical Punch if it recovers even a fraction of this leaked pipeline.`
+      : 'Lead volume is lower, so this vertical needs a lighter package or higher-ticket focus.',
+    assumptions: {
+      weeklyInquiryVolume,
+      averageLeadValue,
+      currentCaptureRate,
+      improvedCaptureRate,
+      staleLeadPercent,
+      monthlyPlatformCost
+    }
+  };
+}
+
 export const demoLeads = [
   {
     id: 'aurora-001',

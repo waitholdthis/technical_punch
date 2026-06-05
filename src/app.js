@@ -1,20 +1,36 @@
 import './styles.css';
 import {
+  buildIntegrationStatus,
   buildOwnerDecisionPacket,
+  calculateMissedRevenueAudit,
   createInbox,
   demoLeads,
   draftLeadReply,
   generateFollowUpPlan,
+  getVerticalPreset,
   qualifyLead,
   simulateRevenueImpact,
-  summarizePipeline
+  summarizePipeline,
+  verticalPresets
 } from './core.js';
 
-const business = {
-  businessName: 'Technical Punch',
-  voice: 'polished, fast, conversion-focused',
-  bookingLink: 'https://technicalpunch.example/book'
-};
+let selectedPresetId = localStorage.getItem('technicalPunchPreset') || 'restaurant';
+let auditInputs = readStoredAudit();
+
+function currentPreset() {
+  return getVerticalPreset(selectedPresetId);
+}
+
+function currentBusiness() {
+  const preset = currentPreset();
+  return {
+    businessName: 'Technical Punch',
+    voice: 'polished, fast, conversion-focused',
+    bookingLink: 'https://technicalpunch.example/book',
+    demoVertical: preset.label,
+    clientName: preset.businessName
+  };
+}
 
 const savedLeads = (() => {
   try {
@@ -42,8 +58,21 @@ const intentOptions = [
   ['room_block', 'Room block']
 ];
 
+function readStoredAudit() {
+  try {
+    const stored = localStorage.getItem('technicalPunchAudit');
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
 function money(value) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value || 0);
+}
+
+function percent(value) {
+  return `${Math.round(Number(value || 0) * 100)}%`;
 }
 
 function optionTags(options) {
@@ -51,47 +80,31 @@ function optionTags(options) {
 }
 
 function render() {
+  const preset = currentPreset();
+  const business = currentBusiness();
   const inbox = createInbox(leads, business);
   const summary = summarizePipeline(leads);
   const selected = inbox.ranked.find((lead) => lead.id === selectedLeadId) || inbox.ranked[0];
   selectedLeadId = selected?.id;
   const reply = selected ? draftLeadReply(selected, business) : null;
   const followUps = selected ? generateFollowUpPlan(selected) : [];
-  const impact = simulateRevenueImpact(leads);
+  const impact = simulateRevenueImpact(leads, {
+    currentCaptureRate: preset.captureRate,
+    improvedCaptureRate: preset.improvedCaptureRate,
+    monthlyLeadMultiplier: preset.monthlyLeadMultiplier,
+    monthlyPlatformCost: preset.monthlyPlatformCost
+  });
+  const audit = calculateMissedRevenueAudit(auditInputs || {}, preset);
+  const integrations = buildIntegrationStatus(preset);
   const ownerPackets = inbox.board.ownerAttention.map((lead) => buildOwnerDecisionPacket(lead, business));
   const selectedPacket = selected ? buildOwnerDecisionPacket(selected, business) : null;
 
   document.querySelector('#app').innerHTML = `
     <main>
-      <section class="hero shell">
-        <nav class="nav">
-          <div class="brand-mark">TP</div>
-          <span>Technical Punch</span>
-          <a href="#lead-form">Capture a lead</a>
-        </nav>
-
-        <div class="hero-grid">
-          <div>
-            <p class="eyebrow">AI booking & lead conversion OS</p>
-            <h1>Turn every inquiry into a revenue-controlled service lane.</h1>
-            <p class="hero-copy">
-              Technical Punch captures leads from site forms, Instagram DMs, and inquiry emails, qualifies intent,
-              drafts owner-approved replies, schedules follow-ups, and shows hospitality operators which requests are most likely to convert.
-            </p>
-            <div class="hero-actions">
-              <a class="button primary" href="#operator-board">Open the command floor</a>
-              <a class="button ghost" href="#reply-draft">View AI reply draft</a>
-            </div>
-          </div>
-          <aside class="signal-card">
-            <span class="scanline"></span>
-            <p>Highest-converting inquiry</p>
-            <h2>${summary.topLead?.name || 'No lead yet'}</h2>
-            <strong>${summary.topLead?.conversionScore || 0}/100</strong>
-            <span>${summary.ownerBrief}</span>
-          </aside>
-        </div>
-      </section>
+      ${renderSalesLanding(summary, impact, audit, preset)}
+      ${renderVerticalPresets(preset)}
+      ${renderIntegrationPanel(integrations, preset)}
+      ${renderAuditFlow(audit, preset)}
 
       <section class="metrics shell" aria-label="Pipeline metrics">
         <article>
@@ -124,7 +137,7 @@ function render() {
           <article>
             <span>Projected monthly lift</span>
             <strong>${money(impact.economics.monthlyRevenueLift)}</strong>
-            <p>Based on moving capture from ${(impact.economics.assumptions.currentCaptureRate * 100).toFixed(0)}% to ${(impact.economics.assumptions.improvedCaptureRate * 100).toFixed(0)}% across similar monthly inquiry volume.</p>
+            <p>Based on moving capture from ${percent(impact.economics.assumptions.currentCaptureRate)} to ${percent(impact.economics.assumptions.improvedCaptureRate)} across ${preset.label.toLowerCase()} inquiry volume.</p>
           </article>
           <article>
             <span>Net lift after platform</span>
@@ -182,19 +195,13 @@ function render() {
           <p class="eyebrow">Intake sources</p>
           <h2>Capture lanes</h2>
           <div class="lanes">
-            <span>Website forms</span>
-            <span>Instagram DMs</span>
-            <span>Inquiry email</span>
-            <span>Manual concierge entry</span>
+            ${preset.integrationLanes.map((lane) => `<span>${lane}</span>`).join('')}
           </div>
         </article>
         <article class="panel">
           <p class="eyebrow">Automation policy</p>
           <h2>Fast, but owner-safe</h2>
-          <p>
-            Premium events and high-value leads require owner approval before sending. The system drafts and schedules,
-            but the operator controls final tone, exceptions, and holds.
-          </p>
+          <p>${preset.ownerPolicy}</p>
         </article>
       </section>
 
@@ -219,6 +226,128 @@ function render() {
   `;
 
   bindEvents();
+}
+
+function renderSalesLanding(summary, impact, audit, preset) {
+  return `
+    <section class="hero shell" id="sales-page">
+      <nav class="nav">
+        <div class="brand-mark">TP</div>
+        <span>Technical Punch</span>
+        <a href="#verticals">Vertical presets</a>
+        <a href="#missed-revenue-audit">Run audit</a>
+        <a href="#operator-board">Command floor</a>
+      </nav>
+
+      <div class="hero-grid sales-hero-grid">
+        <div>
+          <p class="eyebrow">AI booking & lead conversion OS</p>
+          <h1>Turn inquiry chaos into owner-controlled revenue.</h1>
+          <p class="hero-copy">
+            Technical Punch captures leads from site forms, Instagram DMs, inquiry emails, and concierge channels; scores intent;
+            drafts owner-safe replies; schedules tasteful follow-ups; and proves the monthly revenue leak before the client buys.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="#missed-revenue-audit">Estimate missed revenue</a>
+            <a class="button ghost" href="#integrations">View integrations</a>
+            <a class="button ghost" href="#operator-board">Open demo app</a>
+          </div>
+          <div class="proof-strip">
+            <span>${preset.label}</span>
+            <span>${money(impact.economics.monthlyRevenueLift)} projected lift</span>
+            <span>${money(audit.annualizedOpportunity)} annualized audit upside</span>
+          </div>
+        </div>
+        <aside class="signal-card sales-card">
+          <span class="scanline"></span>
+          <p>Current demo target</p>
+          <h2>${preset.businessName}</h2>
+          <strong>${summary.topLead?.conversionScore || 0}/100</strong>
+          <span>${summary.ownerBrief}</span>
+        </aside>
+      </div>
+    </section>
+  `;
+}
+
+function renderVerticalPresets(activePreset) {
+  return `
+    <section class="shell vertical-panel" id="verticals">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Vertical presets</p>
+          <h2>One product, five buyer-ready sales demos.</h2>
+        </div>
+        <span class="section-kicker">Active: ${activePreset.label}</span>
+      </div>
+      <div class="vertical-grid">
+        ${verticalPresets.map((preset) => `
+          <button class="vertical-card ${preset.id === activePreset.id ? 'active' : ''}" type="button" data-preset-id="${preset.id}">
+            <span>${preset.operator}</span>
+            <strong>${preset.label}</strong>
+            <em>${preset.tagline}</em>
+            <b>${preset.heroMetric}</b>
+          </button>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderIntegrationPanel(integrations, preset) {
+  return `
+    <section class="shell integration-panel" id="integrations">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Integration command center</p>
+          <h2>Fake-believable now. Production-connectable later.</h2>
+        </div>
+        <span class="section-kicker">${preset.leadMix}</span>
+      </div>
+      <div class="integration-grid">
+        ${integrations.map((lane) => `
+          <article class="integration-card">
+            <div>
+              <span class="status-dot"></span>
+              <p>${lane.status}</p>
+            </div>
+            <h3>${lane.name}</h3>
+            <strong>${lane.latency}</strong>
+            <p>${lane.description}</p>
+            <em>${lane.ownerSafe ? 'Owner-safe automation lane' : 'Human review recommended'}</em>
+          </article>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderAuditFlow(audit, preset) {
+  const assumptions = audit.assumptions;
+  return `
+    <section class="shell audit-panel" id="missed-revenue-audit">
+      <div class="audit-copy">
+        <p class="eyebrow">Missed revenue audit</p>
+        <h2>Turn inbox chaos into a dollar estimate.</h2>
+        <p>${audit.verdict}</p>
+        <div class="audit-stats">
+          <article><span>Monthly pipeline</span><strong>${money(audit.monthlyPipelineValue)}</strong></article>
+          <article><span>Monthly lift</span><strong>${money(audit.monthlyLift)}</strong></article>
+          <article><span>Stale revenue at risk</span><strong>${money(audit.staleRevenueAtRisk)}</strong></article>
+          <article><span>Payback</span><strong>${audit.paybackDays} days</strong></article>
+        </div>
+      </div>
+      <form id="auditForm" class="audit-form">
+        <label>Weekly inquiry volume <input name="weeklyInquiryVolume" type="number" min="1" value="${assumptions.weeklyInquiryVolume}" /></label>
+        <label>Average lead value <input name="averageLeadValue" type="number" min="1" value="${assumptions.averageLeadValue}" /></label>
+        <label>Current capture rate <input name="currentCaptureRate" type="number" min="0" max="1" step="0.01" value="${assumptions.currentCaptureRate}" /></label>
+        <label>Improved capture rate <input name="improvedCaptureRate" type="number" min="0" max="1" step="0.01" value="${assumptions.improvedCaptureRate}" /></label>
+        <label>Stale lead percent <input name="staleLeadPercent" type="number" min="0" max="1" step="0.01" value="${assumptions.staleLeadPercent}" /></label>
+        <label>Platform cost <input name="monthlyPlatformCost" type="number" min="0" value="${assumptions.monthlyPlatformCost}" /></label>
+        <button class="button primary" type="submit">Recalculate ${preset.label} audit</button>
+      </form>
+    </section>
+  `;
 }
 
 function renderLeadCard(lead) {
@@ -280,6 +409,33 @@ function renderDecisionPacket(packet) {
 }
 
 function bindEvents() {
+  document.querySelectorAll('.vertical-card').forEach((card) => {
+    card.addEventListener('click', () => {
+      selectedPresetId = card.dataset.presetId;
+      localStorage.setItem('technicalPunchPreset', selectedPresetId);
+      auditInputs = null;
+      localStorage.removeItem('technicalPunchAudit');
+      render();
+      document.querySelector('#verticals')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  document.querySelector('#auditForm')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    auditInputs = {
+      weeklyInquiryVolume: Number(data.get('weeklyInquiryVolume')),
+      averageLeadValue: Number(data.get('averageLeadValue')),
+      currentCaptureRate: Number(data.get('currentCaptureRate')),
+      improvedCaptureRate: Number(data.get('improvedCaptureRate')),
+      staleLeadPercent: Number(data.get('staleLeadPercent')),
+      monthlyPlatformCost: Number(data.get('monthlyPlatformCost'))
+    };
+    localStorage.setItem('technicalPunchAudit', JSON.stringify(auditInputs));
+    render();
+    document.querySelector('#missed-revenue-audit')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
   document.querySelectorAll('.lead-card').forEach((card) => {
     card.addEventListener('click', () => {
       selectedLeadId = card.dataset.leadId;
@@ -317,8 +473,8 @@ function bindEvents() {
   });
 
   document.querySelector('.export-packets')?.addEventListener('click', async () => {
-    const packets = createInbox(leads, business).board.ownerAttention.map((lead) => buildOwnerDecisionPacket(lead, business));
-    const payload = JSON.stringify({ exportedAt: new Date().toISOString(), packets }, null, 2);
+    const packets = createInbox(leads, currentBusiness()).board.ownerAttention.map((lead) => buildOwnerDecisionPacket(lead, currentBusiness()));
+    const payload = JSON.stringify({ exportedAt: new Date().toISOString(), preset: currentPreset(), packets }, null, 2);
     if (navigator.clipboard) await navigator.clipboard.writeText(payload);
     document.querySelector('.export-packets').textContent = 'Copied packet JSON';
   });

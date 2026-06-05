@@ -12,6 +12,9 @@ It is built to capture inquiries from website forms, Instagram DMs, and inquiry 
 - model the ROI/payback case so a client can see the business value before buying
 - create owner decision packets for approve/edit/send workflows
 - persist demo inquiries locally so the dashboard behaves more like an operator tool
+- switch between buyer-ready vertical presets for restaurants, venues, med spas, boutique hotels, and luxury services
+- show believable integration lanes for sales demos before production APIs are connected
+- run a missed-revenue audit that turns inquiry volume and capture rate into a dollar estimate
 
 This repository contains a front-end MVP with a deterministic conversion engine and cinematic operator dashboard. No API keys, credentials, or live customer data are required.
 
@@ -46,6 +49,9 @@ Operators can add a new inquiry through the simulator and see the OS qualify it 
 - `calculateLeadEconomics(leads, assumptions)`
 - `simulateRevenueImpact(leads, assumptions)`
 - `buildOwnerDecisionPacket(lead, business)`
+- `getVerticalPreset(id)`
+- `buildIntegrationStatus(preset)`
+- `calculateMissedRevenueAudit(inputs, preset)`
 - `createInbox(leads, business)`
 
 The score considers:
@@ -88,6 +94,30 @@ The dashboard now turns the active pipeline into buyer-facing math:
 - stale/SLA-risk revenue that needs immediate action
 
 This is intentionally demo-friendly: a restaurant owner can see why the system should pay for itself instead of only seeing “AI features.”
+
+### Vertical sales presets and missed-revenue audit
+
+The public-facing sales layer can be switched into five prospect-ready modes:
+
+- restaurant group
+- event venue
+- med spa
+- boutique hotel
+- luxury service business
+
+Each preset changes the demo story, capture-rate assumptions, integration lanes, operator policy, and audit math. The missed-revenue audit takes a prospect's weekly inquiry volume, average lead value, current capture rate, improved capture rate, stale lead percentage, and platform cost to estimate:
+
+- monthly pipeline value
+- current captured revenue
+- improved captured revenue
+- monthly revenue lift
+- stale revenue at risk
+- annualized opportunity
+- payback window
+
+### Integration command center
+
+The app includes a fake-but-believable integration panel for demo conversations. It labels lanes as live demo feeds, ready-to-connect handoffs, or export-ready workflows so Technical Punch can sell the operational system before wiring production APIs.
 
 ### Owner decision packets
 
